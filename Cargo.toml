@@ -10,6 +10,8 @@ crate-type = ["cdylib"]
 base64 = "0.22.0"
 clipboard-rs = "0.2.4"
 futures = "0.3.30"
+# Pin image to version compatible with older Rust in CI Docker images
+image = "=0.25.5"
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "2.12.2", default-features = false, features = ["napi4", "tokio_rt"] }
 napi-derive = "2.12.2"
