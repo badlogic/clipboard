@@ -1,3 +1,3 @@
-# `@crosscopy/clipboard-linux-riscv64-gnu`
+# `@mariozechner/clipboard-linux-riscv64-gnu`
 
-This is the **riscv64gc-unknown-linux-gnu** binary for `@crosscopy/clipboard`
+This is the **riscv64gc-unknown-linux-gnu** binary for `@mariozechner/clipboard`

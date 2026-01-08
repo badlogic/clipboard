@@ -1,3 +1,3 @@
-# `@crosscopy/clipboard-win32-x64-msvc`
+# `@mariozechner/clipboard-win32-x64-msvc`
 
-This is the **x86_64-pc-windows-msvc** binary for `@crosscopy/clipboard`
+This is the **x86_64-pc-windows-msvc** binary for `@mariozechner/clipboard`

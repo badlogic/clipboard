@@ -1,20 +1,23 @@
 {
-  "name": "@mariozechner/clipboard-win32-arm64-msvc",
+  "name": "@mariozechner/clipboard-linux-arm64-musl",
   "version": "0.3.0",
   "os": [
-    "win32"
+    "linux"
   ],
   "cpu": [
     "arm64"
   ],
-  "main": "clipboard.win32-arm64-msvc.node",
+  "main": "clipboard.linux-arm64-musl.node",
   "files": [
-    "clipboard.win32-arm64-msvc.node"
+    "clipboard.linux-arm64-musl.node"
   ],
   "license": "MIT",
   "engines": {
     "node": ">= 10"
   },
+  "libc": [
+    "musl"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/badlogic/clipboard.git"

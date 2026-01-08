@@ -1,6 +1,6 @@
 {
-  "name": "@crosscopy/clipboard",
-  "version": "0.2.8",
+  "name": "@mariozechner/clipboard",
+  "version": "0.3.0",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -9,16 +9,18 @@
       "additional": [
         "aarch64-apple-darwin",
         "aarch64-unknown-linux-gnu",
+        "aarch64-unknown-linux-musl",
         "aarch64-pc-windows-msvc",
         "universal-apple-darwin",
-        "riscv64gc-unknown-linux-gnu"
+        "riscv64gc-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl"
       ]
     }
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CrossCopy/clipboard.git"
+    "url": "https://github.com/badlogic/clipboard.git"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0",

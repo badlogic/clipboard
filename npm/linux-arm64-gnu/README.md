@@ -1,3 +1,3 @@
-# `@crosscopy/clipboard-linux-arm64-gnu`
+# `@mariozechner/clipboard-linux-arm64-gnu`
 
-This is the **aarch64-unknown-linux-gnu** binary for `@crosscopy/clipboard`
+This is the **aarch64-unknown-linux-gnu** binary for `@mariozechner/clipboard`

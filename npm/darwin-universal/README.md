@@ -1,3 +1,3 @@
-# `@crosscopy/clipboard-darwin-universal`
+# `@mariozechner/clipboard-darwin-universal`
 
-This is the **universal-apple-darwin** binary for `@crosscopy/clipboard`
+This is the **universal-apple-darwin** binary for `@mariozechner/clipboard`

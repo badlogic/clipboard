@@ -1,6 +1,6 @@
 {
-  "name": "@crosscopy/clipboard-linux-arm64-gnu",
-  "version": "0.2.8",
+  "name": "@mariozechner/clipboard-linux-arm64-gnu",
+  "version": "0.3.0",
   "os": [
     "linux"
   ],
@@ -20,6 +20,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/CrossCopy/clipboard.git"
+    "url": "https://github.com/badlogic/clipboard.git"
   }
 }

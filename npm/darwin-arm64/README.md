@@ -1,3 +1,3 @@
-# `@crosscopy/clipboard-darwin-arm64`
+# `@mariozechner/clipboard-darwin-arm64`
 
-This is the **aarch64-apple-darwin** binary for `@crosscopy/clipboard`
+This is the **aarch64-apple-darwin** binary for `@mariozechner/clipboard`

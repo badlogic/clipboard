@@ -1,11 +1,16 @@
-# Clipboard
+# @mariozechner/clipboard
 
-![NPM Version](https://img.shields.io/npm/v/@crosscopy/clipboard)
-[![CI](https://github.com/CrossCopy/clipboard/actions/workflows/CI.yml/badge.svg)](https://github.com/CrossCopy/clipboard/actions/workflows/CI.yml)
+> **Fork of [@crosscopy/clipboard](https://github.com/CrossCopy/clipboard)**
+>
+> This fork updates to the latest `clipboard-rs` (0.3.1) and adds musl (Alpine Linux) support.
+> All credit goes to the original authors.
 
-**NPM Package**: https://www.npmjs.com/package/@crosscopy/clipboard
+![NPM Version](https://img.shields.io/npm/v/@mariozechner/clipboard)
+[![CI](https://github.com/badlogic/clipboard/actions/workflows/CI.yml/badge.svg)](https://github.com/badlogic/clipboard/actions/workflows/CI.yml)
 
-**GitHub**: https://github.com/crosscopy/clipboard
+**NPM Package**: https://www.npmjs.com/package/@mariozechner/clipboard
+
+**GitHub**: https://github.com/badlogic/clipboard
 
 > This is a clipboard API npm package that allows you to copy and paste data to and from the clipboard.
 > There doesn't seem to be a good clipboard package for node.js (that supports data format beyond text), so I decided to make one.
@@ -32,7 +37,7 @@ Or you can refer to the source code in [src/lib.rs](./src/lib.rs).
 ## Sample
 
 ```javascript
-import Clipboard from "@crosscopy/clipboard";
+import Clipboard from "@mariozechner/clipboard";
 
 console.log(await Clipboard.getText());
 
@@ -44,10 +49,6 @@ if (await Clipboard.hasImage()) {
   console.log("No Image");
 }
 ```
-
-## Plan
-
-A clipboard listener will be added soon for monitoring clipboard changes and get notified when the clipboard content changes.
 
 ## Publish
 
