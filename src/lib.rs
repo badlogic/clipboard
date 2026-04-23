@@ -28,9 +28,10 @@ pub async fn get_text() -> String {
 }
 
 #[napi]
-pub async fn set_text(text: String) {
-  let ctx = ClipboardContext::new().unwrap();
-  ctx.set_text(text).unwrap()
+pub async fn set_text(text: String) -> Result<()> {
+  let ctx = ClipboardContext::new().map_err(|e| Error::from_reason(e.to_string()))?;
+  ctx.set_text(text).map_err(|e| Error::from_reason(e.to_string()))?;
+  Ok(())
 }
 
 #[napi]
