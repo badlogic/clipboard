@@ -56,3 +56,5 @@ Everything is done with GitHub Action.
 
 Run `npm version patch` to bump the version.
 Then `git push --follow-tags` to push the changes and tags to GitHub. GitHub Action will automatically build and publish.
+
+The GitHub Actions `NPM_TOKEN` repository secret is a granular npm token with publish access to `@mariozechner/clipboard` and all `@mariozechner/clipboard-*` platform packages. npm granular access tokens expire after 90 days, so this secret must be rotated before expiry.
