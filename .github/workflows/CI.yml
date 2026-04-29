@@ -380,18 +380,12 @@ jobs:
           if git log -1 --pretty=%B | grep "^[0-9]\+\.[0-9]\+\.[0-9]\+$";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));pkg.version=root.version;fs.writeFileSync(pkgPath,JSON.stringify(pkg,null,2)+'\n');optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
-            for pkg in npm/*; do
-              npm publish "./$pkg" --access public --provenance
-            done
+            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]='0.3.2';}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
             npm publish --access public --provenance --ignore-scripts
           elif git log -1 --pretty=%B | grep "^[0-9]\+\.[0-9]\+\.[0-9]\+";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));pkg.version=root.version;fs.writeFileSync(pkgPath,JSON.stringify(pkg,null,2)+'\n');optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
-            for pkg in npm/*; do
-              npm publish "./$pkg" --tag next --access public --provenance
-            done
+            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]='0.3.2';}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
             npm publish --tag next --access public --provenance --ignore-scripts
           else
             echo "Not a release, skipping publish"
