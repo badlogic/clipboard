@@ -381,19 +381,7 @@ jobs:
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
             npm run version
-            node - <<'NODE'
-            const fs = require('fs')
-            const root = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-            const optionalDependencies = {}
-            for (const dir of fs.readdirSync('npm')) {
-              const pkgPath = `npm/${dir}/package.json`
-              if (!fs.existsSync(pkgPath)) continue
-              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-              optionalDependencies[pkg.name] = root.version
-            }
-            root.optionalDependencies = optionalDependencies
-            fs.writeFileSync('package.json', `${JSON.stringify(root, null, 2)}\n`)
-            NODE
+            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
             for pkg in npm/*; do
               npm publish "$pkg" --access public --provenance
             done
@@ -402,19 +390,7 @@ jobs:
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
             npm run version
-            node - <<'NODE'
-            const fs = require('fs')
-            const root = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-            const optionalDependencies = {}
-            for (const dir of fs.readdirSync('npm')) {
-              const pkgPath = `npm/${dir}/package.json`
-              if (!fs.existsSync(pkgPath)) continue
-              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-              optionalDependencies[pkg.name] = root.version
-            }
-            root.optionalDependencies = optionalDependencies
-            fs.writeFileSync('package.json', `${JSON.stringify(root, null, 2)}\n`)
-            NODE
+            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
             for pkg in npm/*; do
               npm publish "$pkg" --tag next --access public --provenance
             done
