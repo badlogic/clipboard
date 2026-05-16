@@ -1,6 +1,6 @@
 {
   "name": "@mariozechner/clipboard-darwin-x64",
-  "version": "0.3.0",
+  "version": "0.3.6",
   "os": [
     "darwin"
   ],

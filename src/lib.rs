@@ -1,5 +1,8 @@
 #![deny(clippy::all)]
 use base64::{engine::general_purpose, Engine as _};
+#[allow(dead_code, unused_imports)]
+mod clipboard_rs;
+
 use clipboard_rs::{
   common::RustImage, Clipboard, ClipboardContext, ClipboardHandler, ClipboardWatcher,
   ClipboardWatcherContext, ContentFormat, RustImageData,
