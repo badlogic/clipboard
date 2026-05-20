@@ -376,17 +376,32 @@ jobs:
         shell: bash
       - name: Publish
         run: |
+          set -euo pipefail
+
+          publish_packages() {
+            tag_args="$1"
+            for package_json in npm/*/package.json; do
+              package_dir=$(dirname "$package_json")
+              npm publish "$package_dir" --access public --provenance --ignore-scripts $tag_args
+            done
+            npm publish . --access public --provenance --ignore-scripts $tag_args
+          }
+
+          update_optional_dependencies() {
+            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
+          }
+
           npm config set provenance true
           if git log -1 --pretty=%B | grep "^[0-9]\+\.[0-9]\+\.[0-9]\+$";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
-            npm publish --access public --provenance --ignore-scripts
+            update_optional_dependencies
+            publish_packages ""
           elif git log -1 --pretty=%B | grep "^[0-9]\+\.[0-9]\+\.[0-9]\+";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-            node -e "const fs=require('fs');const root=JSON.parse(fs.readFileSync('package.json','utf8'));const optionalDependencies={};for(const dir of fs.readdirSync('npm')){const pkgPath='npm/'+dir+'/package.json';if(!fs.existsSync(pkgPath))continue;const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));optionalDependencies[pkg.name]=root.version;}root.optionalDependencies=optionalDependencies;fs.writeFileSync('package.json',JSON.stringify(root,null,2)+'\n');"
-            npm publish --tag next --access public --provenance --ignore-scripts
+            update_optional_dependencies
+            publish_packages "--tag next"
           else
             echo "Not a release, skipping publish"
           fi
