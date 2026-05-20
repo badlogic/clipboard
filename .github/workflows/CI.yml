@@ -382,7 +382,7 @@ jobs:
             tag_args="$1"
             for package_json in npm/*/package.json; do
               package_dir=$(dirname "$package_json")
-              npm publish "$package_dir" --access public --provenance --ignore-scripts $tag_args
+              npm publish "./$package_dir" --access public --provenance --ignore-scripts $tag_args
             done
             npm publish . --access public --provenance --ignore-scripts $tag_args
           }
