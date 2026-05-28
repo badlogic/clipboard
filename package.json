@@ -38,7 +38,7 @@
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi pre-publish -t npm",
     "test": "ava",
-    "universal": "napi universalize",
+    "universal": "napi universalize -o artifacts",
     "version": "napi version"
   }
 }
