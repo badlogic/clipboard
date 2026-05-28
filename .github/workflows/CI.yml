@@ -287,7 +287,46 @@ jobs:
         with:
           path: artifacts
       - name: Move artifacts
-        run: yarn artifacts
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const files = [];
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const p = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(p);
+              else if (entry.name.endsWith('.node')) files.push(p);
+            }
+          }
+          walk('artifacts');
+          const targetToDir = {
+            'clipboard.darwin-arm64.node': 'darwin-arm64',
+            'clipboard.darwin-universal.node': 'darwin-universal',
+            'clipboard.darwin-x64.node': 'darwin-x64',
+            'clipboard.linux-arm64-gnu.node': 'linux-arm64-gnu',
+            'clipboard.linux-riscv64-gnu.node': 'linux-riscv64-gnu',
+            'clipboard.linux-x64-gnu.node': 'linux-x64-gnu',
+            'clipboard.win32-arm64-msvc.node': 'win32-arm64-msvc',
+            'clipboard.win32-x64-msvc.node': 'win32-x64-msvc',
+          };
+          for (const file of files) {
+            const base = path.basename(file);
+            const dir = targetToDir[base];
+            if (!dir) continue;
+            fs.copyFileSync(file, base);
+            const packageDir = path.join('npm', dir);
+            if (fs.existsSync(packageDir)) fs.copyFileSync(file, path.join(packageDir, base));
+          }
+          for (const dir of fs.readdirSync('npm')) {
+            const pkgPath = path.join('npm', dir, 'package.json');
+            if (!fs.existsSync(pkgPath)) continue;
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+            pkg.version = root.version;
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+          }
+          NODE
       - name: List packages
         run: ls -R ./npm
         shell: bash
