@@ -9,10 +9,9 @@ use clipboard_rs::{
 };
 use napi::{
   bindgen_prelude::*,
-  threadsafe_function::{ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode},
-  JsFunction,
+  threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
-use std::{thread, time::Duration};
+use std::{sync::Arc, thread, time::Duration};
 
 #[macro_use]
 extern crate napi_derive;
@@ -162,13 +161,9 @@ pub fn watch() {
 }
 
 #[napi]
-pub fn call_threadsafe_function(callback: JsFunction) -> Result<()> {
-  let tsfn: ThreadsafeFunction<u32, ErrorStrategy::CalleeHandled> = callback
-    .create_threadsafe_function(0, |ctx| {
-      ctx.env.create_uint32(ctx.value + 1).map(|v| vec![v])
-    })?;
+pub fn call_threadsafe_function(callback: Arc<ThreadsafeFunction<u32, ()>>) -> Result<()> {
   for n in 0..10 {
-    let tsfn = tsfn.clone();
+    let tsfn = Arc::clone(&callback);
     thread::spawn(move || {
       tsfn.call(Ok(n), ThreadsafeFunctionCallMode::Blocking);
     });
