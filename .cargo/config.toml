@@ -1,2 +1,17 @@
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# macOS: pad the Mach-O header so install-name rewrites (e.g. Homebrew's
+# bottling relocation) have room to grow, and use a stable @rpath install
+# name instead of the absolute build-machine path rustc embeds by default.
+[target.x86_64-apple-darwin]
+rustflags = [
+  "-C", "link-arg=-Wl,-headerpad_max_install_names",
+  "-C", "link-arg=-Wl,-install_name,@rpath/libcrosscopy_clipboard.dylib",
+]
+
+[target.aarch64-apple-darwin]
+rustflags = [
+  "-C", "link-arg=-Wl,-headerpad_max_install_names",
+  "-C", "link-arg=-Wl,-install_name,@rpath/libcrosscopy_clipboard.dylib",
+]
