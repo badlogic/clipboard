@@ -12,12 +12,16 @@ use crate::clipboard_rs::{common::RustImage, RustImageData};
 use crate::Clipboard;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::{
-  sync::{Arc, RwLock},
+  sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+  },
   thread,
   time::{Duration, Instant},
 };
 use x11rb::{
   connection::Connection,
+  errors::{ConnectionError, ReplyError, ReplyOrIdError},
   protocol::{
     xfixes,
     xproto::{
@@ -78,6 +82,7 @@ const FILE_PATH_PREFIX: &str = "file://";
 pub struct ClipboardContext {
   inner: Arc<InnerContext>,
   read_timeout: Option<Duration>,
+  server_thread: Option<thread::JoinHandle<()>>,
 }
 
 struct ClipboardData {
@@ -88,6 +93,8 @@ struct ClipboardData {
 struct InnerContext {
   server: XServerContext,
   server_for_write: XServerContext,
+  healthy: AtomicBool,
+  stop_requested: AtomicBool,
   ignore_formats: Vec<Atom>,
   // 此刻待写入的剪贴板内容
   wait_write_data: RwLock<Vec<ClipboardData>>,
@@ -109,9 +116,29 @@ impl InnerContext {
     Ok(Self {
       server,
       server_for_write,
+      healthy: AtomicBool::new(true),
+      stop_requested: AtomicBool::new(false),
       ignore_formats,
       wait_write_data,
     })
+  }
+
+  fn is_healthy(&self) -> bool {
+    self.healthy.load(Ordering::Acquire)
+  }
+
+  fn mark_unhealthy(&self) {
+    self.healthy.store(false, Ordering::Release);
+  }
+
+  fn track_connection<T>(&self, result: Result<T>) -> Result<T> {
+    if result
+      .as_ref()
+      .is_err_and(|error| is_connection_error(error.as_ref()))
+    {
+      self.mark_unhealthy();
+    }
+    result
   }
 
   pub fn handle_selection_request(&self, event: SelectionRequestEvent) -> Result<()> {
@@ -318,7 +345,16 @@ impl ClipboardContext {
     let ctx_arc = Arc::new(ctx);
     let ctx_clone = ctx_arc.clone();
 
-    thread::spawn(move || {
+    let server_thread = thread::spawn(move || {
+      struct MarkUnhealthyOnDrop<'a>(&'a InnerContext);
+
+      impl Drop for MarkUnhealthyOnDrop<'_> {
+        fn drop(&mut self) {
+          self.0.mark_unhealthy();
+        }
+      }
+
+      let _mark_unhealthy = MarkUnhealthyOnDrop(&ctx_clone);
       let res = process_server_req(&ctx_clone);
       if let Err(e) = res {
         println!("process_server_req error: {e:?}");
@@ -328,10 +364,20 @@ impl ClipboardContext {
     Ok(Self {
       inner: ctx_arc,
       read_timeout: options.read_timeout,
+      server_thread: Some(server_thread),
     })
   }
 
+  pub(crate) fn is_healthy(&self) -> bool {
+    self.inner.is_healthy()
+  }
+
   fn read(&self, format: &Atom) -> Result<Vec<u8>> {
+    let result = self.read_inner(format);
+    self.inner.track_connection(result)
+  }
+
+  fn read_inner(&self, format: &Atom) -> Result<Vec<u8>> {
     let ctx = &self.inner.server;
     let atoms = ctx.atoms;
     let clipboard = atoms.CLIPBOARD;
@@ -359,6 +405,11 @@ impl ClipboardContext {
   }
 
   fn write(&self, data: Vec<ClipboardData>) -> Result<()> {
+    let result = self.write_inner(data);
+    self.inner.track_connection(result)
+  }
+
+  fn write_inner(&self, data: Vec<ClipboardData>) -> Result<()> {
     let writer = self.inner.wait_write_data.write();
     match writer {
       Ok(mut writer) => {
@@ -389,23 +440,64 @@ impl ClipboardContext {
       Err("Failed to take ownership of the clipboard".into())
     }
   }
+
+  fn get_read_atom(&self, format: &str) -> Result<Atom> {
+    let result = self.inner.server.get_atom(format);
+    self.inner.track_connection(result)
+  }
+
+  fn get_write_atom(&self, format: &str) -> Result<Atom> {
+    let result = self.inner.server_for_write.get_atom(format);
+    self.inner.track_connection(result)
+  }
+
+  fn get_atom_name(&self, atom: Atom) -> Result<String> {
+    let result = self.inner.server.get_atom_name(atom);
+    self.inner.track_connection(result)
+  }
+}
+
+impl Drop for ClipboardContext {
+  fn drop(&mut self) {
+    self.inner.stop_requested.store(true, Ordering::Release);
+    if let Some(server_thread) = self.server_thread.take() {
+      server_thread.thread().unpark();
+      let _ = server_thread.join();
+    }
+  }
+}
+
+fn is_connection_error(error: &(dyn std::error::Error + Send + Sync + 'static)) -> bool {
+  if error.downcast_ref::<ConnectionError>().is_some() {
+    return true;
+  }
+
+  if let Some(error) = error.downcast_ref::<ReplyError>() {
+    return matches!(error, ReplyError::ConnectionError(_));
+  }
+
+  if let Some(error) = error.downcast_ref::<ReplyOrIdError>() {
+    return matches!(error, ReplyOrIdError::ConnectionError(_));
+  }
+
+  false
 }
 
 fn process_server_req(context: &InnerContext) -> Result<()> {
   let atoms = context.server_for_write.atoms;
-  loop {
+  while !context.stop_requested.load(Ordering::Acquire) {
     match context
       .server_for_write
       .conn
-      .wait_for_event()
-      .map_err(|e| format!("wait_for_event error: {e:?}"))?
+      .poll_for_event()
+      .map_err(|e| format!("poll_for_event error: {e:?}"))?
     {
-      Event::DestroyNotify(_) => {
+      Some(Event::DestroyNotify(_)) => {
         // This window is being destroyed.
         println!("Clipboard server window is being destroyed x_x");
         break;
       }
-      Event::SelectionClear(event) => {
+      Some(Event::SelectionClear(event)) => {
         // Someone else has new content in the clipboard, so it is
         // notifying us that we should delete our data now.
         println!("Somebody else owns the clipboard now");
@@ -418,13 +510,13 @@ fn process_server_req(context: &InnerContext) -> Result<()> {
             .map_err(|e| format!("write clipboard data error: {e:?}"))?;
         }
       }
-      Event::SelectionRequest(event) => {
+      Some(Event::SelectionRequest(event)) => {
         // Someone is requesting the clipboard content from us.
         context
           .handle_selection_request(event)
           .map_err(|e| format!("handle_selection_request error: {e:?}"))?;
       }
-      Event::SelectionNotify(event) => {
+      Some(Event::SelectionNotify(event)) => {
         // We've requested the clipboard content and this is the answer.
         // Considering that this thread is not responsible for reading
         // clipboard contents, this must come from the clipboard manager
@@ -434,10 +526,11 @@ fn process_server_req(context: &InnerContext) -> Result<()> {
           continue;
         }
       }
-      _event => {
+      Some(_event) => {
         // May be useful for debugging but nothing else really.
         // trace!("Received unwanted event: {:?}", event);
       }
+      None => thread::park_timeout(Duration::from_millis(50)),
     }
   }
   Ok(())
@@ -456,7 +549,7 @@ impl Clipboard for ClipboardContext {
         if self.inner.ignore_formats.contains(&atom) {
           continue;
         }
-        let atom_name = ctx.get_atom_name(atom).unwrap_or("Unknown".to_string());
+        let atom_name = self.get_atom_name(atom).unwrap_or("Unknown".to_string());
         formats.push(atom_name);
       }
       formats
@@ -492,7 +585,7 @@ impl Clipboard for ClipboardContext {
   }
 
   fn get_buffer(&self, format: &str) -> Result<Vec<u8>> {
-    let atom = self.inner.server.get_atom(format);
+    let atom = self.get_read_atom(format);
     match atom {
       Ok(atom) => self.read(&atom),
       Err(_) => Err("Invalid format".into()),
@@ -596,7 +689,7 @@ impl Clipboard for ClipboardContext {
   }
 
   fn set_buffer(&self, format: &str, buffer: Vec<u8>) -> Result<()> {
-    let atom = self.inner.server_for_write.get_atom(format)?;
+    let atom = self.get_write_atom(format)?;
     let data = ClipboardData {
       format: atom,
       data: buffer,
@@ -690,7 +783,7 @@ impl Clipboard for ClipboardContext {
           data.extend(data_arr);
         }
         ClipboardContent::Other(format_name, buffer) => {
-          let atom = self.inner.server_for_write.get_atom(&format_name)?;
+          let atom = self.get_write_atom(&format_name)?;
           data.push(ClipboardData {
             format: atom,
             data: buffer,

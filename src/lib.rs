@@ -4,13 +4,16 @@ use base64::{engine::general_purpose, Engine as _};
 mod clipboard_rs;
 
 use clipboard_rs::{
-  common::RustImage, Clipboard, ClipboardContext, ClipboardHandler, ClipboardWatcher,
-  ClipboardWatcherContext, ContentFormat, RustImageData,
+  common::{Result as ClipboardResult, RustImage},
+  Clipboard, ClipboardContext, ClipboardHandler, ClipboardWatcher, ClipboardWatcherContext,
+  ContentFormat, RustImageData,
 };
 use napi::{
   bindgen_prelude::*,
   threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
+#[cfg(target_os = "linux")]
+use std::sync::Mutex;
 use std::{sync::Arc, thread, time::Duration};
 
 #[macro_use]
@@ -20,34 +23,70 @@ fn napi_error(error: impl ToString) -> Error {
   Error::from_reason(error.to_string())
 }
 
+#[cfg(target_os = "linux")]
+// Keep one healthy X11 context so global API calls share its connections.
+// Dropping an unhealthy context stops and joins its selection server thread.
+static X11_CLIPBOARD_CONTEXT: Mutex<Option<ClipboardContext>> = Mutex::new(None);
+
+#[cfg(target_os = "linux")]
+fn with_clipboard<T>(operation: impl FnOnce(&ClipboardContext) -> ClipboardResult<T>) -> Result<T> {
+  let mut shared_context = X11_CLIPBOARD_CONTEXT
+    .lock()
+    .map_err(|_| Error::from_reason("Clipboard context lock is poisoned"))?;
+
+  if shared_context
+    .as_ref()
+    .is_some_and(|context| !context.is_healthy())
+  {
+    *shared_context = None;
+  }
+
+  if let Some(context) = shared_context.as_ref() {
+    return operation(context).map_err(napi_error);
+  }
+
+  let context = ClipboardContext::new().map_err(napi_error)?;
+  if context.is_x11() {
+    *shared_context = Some(context);
+    let context = shared_context
+      .as_ref()
+      .ok_or_else(|| Error::from_reason("Clipboard context initialization failed"))?;
+    return operation(context).map_err(napi_error);
+  }
+
+  drop(shared_context);
+  operation(&context).map_err(napi_error)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn with_clipboard<T>(operation: impl FnOnce(&ClipboardContext) -> ClipboardResult<T>) -> Result<T> {
+  let context = ClipboardContext::new().map_err(napi_error)?;
+  operation(&context).map_err(napi_error)
+}
+
 #[napi]
 pub fn available_formats() -> Result<Vec<String>> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.available_formats().map_err(napi_error)
+  with_clipboard(|context| context.available_formats())
 }
 
 #[napi]
 pub async fn get_text() -> Result<String> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.get_text().map_err(napi_error)
+  with_clipboard(|context| context.get_text())
 }
 
 #[napi]
 pub async fn set_text(text: String) -> Result<()> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.set_text(text).map_err(napi_error)
+  with_clipboard(|context| context.set_text(text))
 }
 
 #[napi]
 pub fn has_text() -> Result<bool> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  Ok(ctx.has(ContentFormat::Text))
+  with_clipboard(|context| Ok(context.has(ContentFormat::Text)))
 }
 
 #[napi]
 pub async fn get_image_binary() -> Result<Vec<u8>> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  let image = ctx.get_image().map_err(napi_error)?;
+  let image = with_clipboard(|context| context.get_image())?;
   let image_bytes = image.to_png().map_err(napi_error)?.get_bytes().to_vec();
   Ok(image_bytes)
 }
@@ -61,9 +100,8 @@ pub async fn get_image_base64() -> Result<String> {
 
 #[napi]
 pub async fn set_image_binary(image_bytes: Vec<u8>) -> Result<()> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
   let img = RustImageData::from_bytes(&image_bytes).map_err(napi_error)?;
-  ctx.set_image(img).map_err(napi_error)
+  with_clipboard(|context| context.set_image(img))
 }
 
 #[napi]
@@ -76,50 +114,42 @@ pub async fn set_image_base64(base64_str: String) -> Result<()> {
 
 #[napi]
 pub fn has_image() -> Result<bool> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  Ok(ctx.has(ContentFormat::Image))
+  with_clipboard(|context| Ok(context.has(ContentFormat::Image)))
 }
 
 #[napi]
 pub async fn get_html() -> Result<String> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.get_html().map_err(napi_error)
+  with_clipboard(|context| context.get_html())
 }
 
 #[napi]
 pub async fn set_html(html: String) -> Result<()> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.set_html(html).map_err(napi_error)
+  with_clipboard(|context| context.set_html(html))
 }
 
 #[napi]
 fn has_html() -> Result<bool> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  Ok(ctx.has(ContentFormat::Html))
+  with_clipboard(|context| Ok(context.has(ContentFormat::Html)))
 }
 
 #[napi]
 pub async fn get_rtf() -> Result<String> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.get_rich_text().map_err(napi_error)
+  with_clipboard(|context| context.get_rich_text())
 }
 
 #[napi]
 pub async fn set_rtf(rtf: String) -> Result<()> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.set_rich_text(rtf).map_err(napi_error)
+  with_clipboard(|context| context.set_rich_text(rtf))
 }
 
 #[napi]
 pub fn has_rtf() -> Result<bool> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  Ok(ctx.has(ContentFormat::Rtf))
+  with_clipboard(|context| Ok(context.has(ContentFormat::Rtf)))
 }
 
 #[napi]
 pub async fn clear() -> Result<()> {
-  let ctx = ClipboardContext::new().map_err(napi_error)?;
-  ctx.clear().map_err(napi_error)
+  with_clipboard(|context| context.clear())
 }
 
 struct Manager {

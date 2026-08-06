@@ -83,6 +83,18 @@ mod linux_clipboard {
       }
       Ok(Self::X11(super::x11::ClipboardContext::new()?))
     }
+
+    pub(crate) fn is_x11(&self) -> bool {
+      matches!(self, Self::X11(_))
+    }
+
+    pub(crate) fn is_healthy(&self) -> bool {
+      match self {
+        Self::X11(context) => context.is_healthy(),
+        #[cfg(feature = "wayland")]
+        Self::Wayland(_) => true,
+      }
+    }
   }
 
   macro_rules! dispatch {
