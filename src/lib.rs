@@ -13,7 +13,7 @@ use napi::{
   threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
 #[cfg(target_os = "linux")]
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 use std::{sync::Arc, thread, time::Duration};
 
 #[macro_use]
@@ -24,41 +24,37 @@ fn napi_error(error: impl ToString) -> Error {
 }
 
 #[cfg(target_os = "linux")]
-// X11 starts a server thread for each context and cannot currently stop it, so
-// keep one context for the process lifetime instead of leaking one per API call.
-static CLIPBOARD_CONTEXT: OnceLock<Mutex<ClipboardContext>> = OnceLock::new();
-
-#[cfg(target_os = "linux")]
-static CLIPBOARD_CONTEXT_INIT: Mutex<()> = Mutex::new(());
-
-#[cfg(target_os = "linux")]
-fn clipboard_context() -> Result<&'static Mutex<ClipboardContext>> {
-  if let Some(context) = CLIPBOARD_CONTEXT.get() {
-    return Ok(context);
-  }
-
-  let _init_guard = CLIPBOARD_CONTEXT_INIT
-    .lock()
-    .map_err(|_| Error::from_reason("Clipboard context initialization lock is poisoned"))?;
-
-  if CLIPBOARD_CONTEXT.get().is_none() {
-    let context = ClipboardContext::new().map_err(napi_error)?;
-    CLIPBOARD_CONTEXT
-      .set(Mutex::new(context))
-      .map_err(|_| Error::from_reason("Clipboard context was initialized concurrently"))?;
-  }
-
-  CLIPBOARD_CONTEXT
-    .get()
-    .ok_or_else(|| Error::from_reason("Clipboard context initialization failed"))
-}
+// Keep one healthy X11 context so global API calls share its connections.
+// Dropping an unhealthy context stops and joins its selection server thread.
+static X11_CLIPBOARD_CONTEXT: Mutex<Option<ClipboardContext>> = Mutex::new(None);
 
 #[cfg(target_os = "linux")]
 fn with_clipboard<T>(operation: impl FnOnce(&ClipboardContext) -> ClipboardResult<T>) -> Result<T> {
-  let context = clipboard_context()?;
-  let context = context
+  let mut shared_context = X11_CLIPBOARD_CONTEXT
     .lock()
     .map_err(|_| Error::from_reason("Clipboard context lock is poisoned"))?;
+
+  if shared_context
+    .as_ref()
+    .is_some_and(|context| !context.is_healthy())
+  {
+    *shared_context = None;
+  }
+
+  if let Some(context) = shared_context.as_ref() {
+    return operation(context).map_err(napi_error);
+  }
+
+  let context = ClipboardContext::new().map_err(napi_error)?;
+  if context.is_x11() {
+    *shared_context = Some(context);
+    let context = shared_context
+      .as_ref()
+      .ok_or_else(|| Error::from_reason("Clipboard context initialization failed"))?;
+    return operation(context).map_err(napi_error);
+  }
+
+  drop(shared_context);
   operation(&context).map_err(napi_error)
 }
 
