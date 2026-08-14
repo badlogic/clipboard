@@ -330,6 +330,18 @@ jobs:
       - name: List packages
         run: ls -R ./npm
         shell: bash
+      - name: Verify platform packages contain their binaries
+        run: |
+          set -euo pipefail
+          for package_json in npm/*/package.json; do
+            package_dir=$(dirname "$package_json")
+            main=$(node -p "require('./$package_json').main")
+            if [ ! -f "$package_dir/$main" ]; then
+              echo "::error file=$package_json::$package_dir is missing its binary ($main) - refusing to publish"
+              exit 1
+            fi
+          done
+        shell: bash
       - name: Publish
         run: |
           set -euo pipefail
