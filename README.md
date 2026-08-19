@@ -6,11 +6,11 @@
 > All credit goes to the original authors.
 
 ![NPM Version](https://img.shields.io/npm/v/@mariozechner/clipboard)
-[![CI](https://github.com/badlogic/clipboard/actions/workflows/CI.yml/badge.svg)](https://github.com/badlogic/clipboard/actions/workflows/CI.yml)
+[![CI](https://github.com/earendil-works/clipboard/actions/workflows/CI.yml/badge.svg)](https://github.com/earendil-works/clipboard/actions/workflows/CI.yml)
 
 **NPM Package**: https://www.npmjs.com/package/@mariozechner/clipboard
 
-**GitHub**: https://github.com/badlogic/clipboard
+**GitHub**: https://github.com/earendil-works/clipboard
 
 > This is a clipboard API npm package that allows you to copy and paste data to and from the clipboard.
 > There doesn't seem to be a good clipboard package for node.js (that supports data format beyond text), so I decided to make one.
